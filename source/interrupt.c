@@ -4,8 +4,6 @@
 // Include the header needed for this module.
 #include "interrupt.h"
 // Include the header needed for this module.
-#include "lcd.h"
-// Include the header needed for this module.
 #include<lpc21xx.h>
 // Declare shared data used by more than one function.
 volatile int flag=0;
