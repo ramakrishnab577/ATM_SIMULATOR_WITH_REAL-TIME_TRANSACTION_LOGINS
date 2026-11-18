@@ -1,343 +1,344 @@
-// Include the header needed for this module.
+//atm_run.c
+// Include declarations for LCD control and display functions.
 #include "lcd.h"
-// Include the header needed for this module.
+// Include declarations for LCD commands and pin definitions.
 #include "lcd_defines.h"
-// Include the header needed for this module.
+// Include declarations for matrix keypad scanning and input functions.
 #include "kpm.h"
-// Include the header needed for this module.
+// Include declarations for millisecond and second delay functions.
 #include "delay.h"
-// Include the header needed for this module.
+// Include declarations for balance, withdrawal, and deposit functions.
 #include "transaction.h"
-// Include the header needed for this module.
+// Include declarations for transaction history display functions.
 #include "transaction_history.h"
-// Include the header needed for this module.
+// Include declarations for UART serial transmission functions.
 #include "uart.h"
-// Include the header needed for this module.
+// Include declarations for interrupt-related declarations.
 #include "interrupt.h"
-// Include the header needed for this module.
+// Include declarations for real-time clock functions.
 #include "rtc.h"
-// Include the header needed for this module.
+// Include declarations for ATM application function declarations.
 #include "atm_run.h"
-// Include the header needed for this module.
+// Include declarations for fixed-width integer type aliases.
 #include "types.h"
 
-// Give a readable name to a fixed value or setting.
+// Define the account number accepted by this ATM simulation.
 #define ACC_NO 1111
-// Give a readable name to a fixed value or setting.
+// Set the maximum number of incorrect PIN attempts to three.
 #define MAX 3
-// Include the header needed for this module.
+// Include declarations for standard input/output functions such as sprintf.
 #include<stdio.h>
-// Include the header needed for this module.
+// Include declarations for LPC21xx GPIO and peripheral register definitions.
 #include<lpc21xx.h>
 extern volatile int flag;
 
-// Declare shared data used by more than one function.
+// Access RTC time values defined in another source file.
 extern s32 sec,min,hour;
-// Declare shared data used by more than one function.
+// Access RTC date values defined in another source file.
 extern s32 day,month,year;
-// Declare shared data used by more than one function.
+// Access the shared buffer used to format UART transaction logs.
 extern char log[200];
 //volatile unsigned char flag=0;
 
-// Declare variables used to store data for this operation.
+// Initialize the account PIN to 3333.
 u32 PIN=3333;
-// Declare variables used to store data for this operation.
+// Store the entered account number, entered PIN, failed-attempt count, and menu choice.
 u32 acc_num,pin,cnt=0,val;
 
-// Define the function that performs this operation.
+// Start the ATM login process and return 1 after successful authentication.
 int atm_login()
 {
-	// Configure the selected GPIO pins as inputs or outputs.
+	// Configure GPIO P0.2 as an output.
 	IODIR0|=1<<2;
-	// Set the selected microcontroller output pin LOW.
+	// Drive P0.2 LOW.
 	IOCLR0=1<<2;
-	// Repeat these steps while the condition is true.
+	// Keep processing this ATM stage until an explicit exit occurs.
 	while(1)
 	{
-	   // Show this message on the LCD.
+	   // Display the ATM welcome message on the LCD.
 	   StrLCD("Welcome!....");
-	   // Move the LCD cursor to the required display position.
+	   // Position the LCD cursor at the beginning of line 2.
 	   CmdLCD(GOTO_LINE2_POS0);
-	   // Show this message on the LCD.
+	   // Display the ATM simulator title on the second LCD line.
 	   StrLCD("ATM SIMULATOR!...");
-	   // Wait for the requested number of seconds.
+	   // Wait one second.
 	   delay_s(1);
-		// Repeat these steps while the condition is true.
+		// Keep processing this ATM stage until an explicit exit occurs.
 		while(1)
 		{
-		    // Show the current date and time on the LCD.
+		    // Display the current RTC date and time on the LCD.
 		    Display_RTC();
-			// Check this condition before continuing.
+			// Check whether the date/time update flag has been set.
 			if(flag==1)
 	   		{
-	       		// Call this function to perform the requested operation.
+	       		// Run the date/time-setting routine when the interrupt flag is set.
 	       		Set_date_time();
-		   		// Update this value as part of the current operation.
+		   		// Clear the interrupt/event flag after handling it.
 		   		flag=0;
 	   		}
-			// Wait for the requested number of seconds.
+			// Wait two seconds.
 			delay_s(2);
-			// Exit the current loop or switch case.
+			// Exit the current loop or switch branch.
 			break;
 		}
-	    // Clear the LCD before showing new information.
+	    // Clear the LCD screen before the next display.
 	    CmdLCD(0x01);
-// Entry point used when the user needs to retry.
+// Mark the account-number retry point and move the LCD cursor to line 1.
 acc:   CmdLCD(GOTO_LINE1_POS0);
-	    // Show this message on the LCD.
+	    // Prompt the user to enter the account number.
 	    StrLCD("Enter Account No");
-		// Read a number entered using the keypad.
+		// Read the account number from the keypad.
 		acc_num=set_number();
-		// Clear the LCD before showing new information.
+		// Clear the LCD screen before the next display.
 		CmdLCD(0x01);
-		// Check this condition before continuing.
+		// Reject an account number that does not match ACC_NO.
 		if(ACC_NO!=acc_num)
 		// Call this function to perform the requested operation.
 		{	CmdLCD(GOTO_LINE1_POS0);
-			// Show this message on the LCD.
+			// Display an invalid-account-number message.
 			StrLCD("INVALID ACC NO");
-			// Wait for the requested number of seconds.
+			// Wait three seconds.
 			delay_s(3);
-			// Clear the LCD before showing new information.
+			// Clear the LCD screen before the next display.
 			CmdLCD(0x01);
-			// Return to the named input step to try again.
+			// Repeat account-number entry after a mismatch.
 			goto acc;
 		}
-		// Handle the case when the previous condition is false.
+		// Handle the case where the preceding condition is false.
 		else 
 		{
-		    // Clear the LCD before showing new information.
+		    // Clear the LCD screen before the next display.
 		    CmdLCD(0x01);
-// Entry point used when the user needs to retry.
+// Mark the PIN retry point and move the LCD cursor to line 1.
 pwd:	    CmdLCD(GOTO_LINE1_POS0);
-	    	// Show this message on the LCD.
+	    	// Prompt the user to enter the account PIN.
 	    	StrLCD("Enter Pin");
-		    // Read the PIN from the keypad while hiding the entered digits.
+		    // Read the masked PIN from the keypad.
 		    pin=Read_Password();
-			// Clear the LCD before showing new information.
+			// Clear the LCD screen before the next display.
 			CmdLCD(0x01);
-			// Check this condition before continuing.
+			// Check whether the entered PIN matches the stored PIN.
 			if(pin==PIN)
 			{
-			  // Move the LCD cursor to the required display position.
+			  // Position the LCD cursor at the beginning of line 1.
 			  CmdLCD(GOTO_LINE1_POS0);
-			  // Show this message on the LCD.
+			  // Confirm successful PIN authentication on the LCD.
 			  StrLCD("LOGIN SUCCESS");
-			  // Read the current date and time from the real-time clock.
+			  // Read the current RTC date and time for the event log.
 			  RTC_Read(&sec,&min,&hour,&day,&month,&year);
-			  // Send this text to the serial terminal through UART0.
+			  // Print a separator line to the UART terminal.
 			  U0_TxStr("\r\n=======================================================================\r\n");
-			  // Format the transaction or date details as text.
+			  // Format the timestamp, account number, and login success event for the UART log.
 			  sprintf(log,"[%02u-%02u-%04u/%02u:%02u:%02u] ACC:%u :LOGIN SUCCESS\r\n",day,month,year,hour,min,sec,acc_num);
-		   	  // Send this text to the serial terminal through UART0.
+		   	  // Transmit the formatted event log over UART0.
 		   	  U0_TxStr(log);
-			  // Send this text to the serial terminal through UART0.
+			  // Print a separator line to the UART terminal.
 			  U0_TxStr("\r\n=======================================================================\r\n");
-			  // Wait for the requested number of seconds.
+			  // Wait two seconds.
 			  delay_s(2);
-			  // Clear the LCD before showing new information.
+			  // Clear the LCD screen before the next display.
 			  CmdLCD(0x01);
-			   // Finish this function and return to its caller.
+			   // Report a successful login to the caller.
 			   return 1;
 			}
-			// Handle the case when the previous condition is false.
+			// Handle the case where the preceding condition is false.
 			else
 			{
-			   // Move the LCD cursor to the required display position.
+			   // Position the LCD cursor at the beginning of line 1.
 			   CmdLCD(GOTO_LINE1_POS0);
-			   // Show this message on the LCD.
+			   // Notify the user that the entered PIN is incorrect.
 			   StrLCD("INVALID PASSWORD");
-			   // Wait for the requested number of seconds.
+			   // Wait two seconds.
 			   delay_s(2);
-			   // Clear the LCD before showing new information.
+			   // Clear the LCD screen before the next display.
 			   CmdLCD(0x01);
 			   cnt++;
-			   // Check this condition before continuing.
+			   // Check whether the failed-PIN attempt limit has been reached.
 			   if(cnt==MAX)
 			   {
-			     // Move the LCD cursor to the required display position.
+			     // Position the LCD cursor at the beginning of line 1.
 			     CmdLCD(GOTO_LINE1_POS0);
-			     // Show this message on the LCD.
+			     // Display the lockout warning after three failed attempts.
 			     StrLCD("TRY AFTER 24Hrs!..");
-				 // Set the selected microcontroller output pin HIGH.
+				 // Drive P0.2 HIGH after the maximum number of failed PIN attempts.
 				 IOSET0=1<<2;
-				 // Wait for the requested number of milliseconds.
+				 // Wait 500 milliseconds.
 				 delay_ms(500);
-				 // Set the selected microcontroller output pin LOW.
+				 // Drive P0.2 LOW.
 				 IOCLR0=1<<2;
 				 //delay_ms(500);
-				 // Clear the LCD before showing new information.
+				 // Clear the LCD screen before the next display.
 				 CmdLCD(0x01);	
 			   }
-			   // Handle the case when the previous condition is false.
+			   // Handle the case where the preceding condition is false.
 			   else
 			   {
-			   		// Return to the named input step to try again.
+			   		// Allow another PIN entry while attempts remain.
 			   		goto pwd;
 			   }	
 			}		 
 		}
 	}		
 }
-// Define the function that performs this operation.
+// Verify the old PIN and replace it with a new PIN.
 void change_pin()
 {
     // Declare variables used to store data for this operation.
     u32 old_pin,new_pin;
-	// Clear the LCD before showing new information.
+	// Clear the LCD screen before the next display.
 	CmdLCD(0x01);
-// Entry point used when the user needs to retry.
+// Mark the old-PIN retry point and prompt for the current PIN.
 old:StrLCD("Enter old pin");
-    // Read the PIN from the keypad while hiding the entered digits.
+    // Read the current PIN from the keypad.
     old_pin=Read_Password();
-    // Check this condition before continuing.
+    // Verify that the old PIN matches the stored PIN.
     if(old_pin==PIN)
     {
-	   // Clear the LCD before showing new information.
+	   // Clear the LCD screen before the next display.
 	   CmdLCD(0x01);
-       // Show this message on the LCD.
+       // Prompt the user to enter a replacement PIN.
        StrLCD("Enter new pin");
-       // Read the PIN from the keypad while hiding the entered digits.
+       // Read the new PIN from the keypad.
        new_pin=Read_Password();
-       // Update this value as part of the current operation.
+       // Update the stored PIN with the new value.
        PIN=new_pin;
-       // Clear the LCD before showing new information.
+       // Clear the LCD screen before the next display.
        CmdLCD(0x01);
-	   // Read the current date and time from the real-time clock.
+	   // Read the current RTC date and time for the event log.
 	   RTC_Read(&sec,&min,&hour,&day,&month,&year);
-	   // Send this text to the serial terminal through UART0.
+	   // Print a separator line to the UART terminal.
 	   U0_TxStr("\r\n=======================================================================\r\n");
-	   // Format the transaction or date details as text.
+	   // Format the timestamp, account number, and PIN change event for the UART log.
 	   sprintf(log,"[%02u-%02u-%04u/%02u:%02u:%02u] ACC:%u :PIN CHANGED SUCCESSFULLY\r\n",day,month,year,hour,min,sec,ACC_NO);
-	   // Send this text to the serial terminal through UART0.
+	   // Transmit the formatted event log over UART0.
 	   U0_TxStr(log);
-	   // Send this text to the serial terminal through UART0.
+	   // Print a separator line to the UART terminal.
 	   U0_TxStr("\r\n=======================================================================\r\n");
-       // Show this message on the LCD.
+       // Show confirmation that the PIN was changed.
        StrLCD("chg successful");
     
     }
-    // Handle the case when the previous condition is false.
+    // Handle the case where the preceding condition is false.
     else
     {
-       // Clear the LCD before showing new information.
+       // Clear the LCD screen before the next display.
        CmdLCD(0x01);
-       // Show this message on the LCD.
+       // Display an error when the old PIN is incorrect.
        StrLCD("Invalid Pin");
-	   // Clear the LCD before showing new information.
+	   // Clear the LCD screen before the next display.
 	   CmdLCD(0x01);
-       // Return to the named input step to try again.
+       // Return to old-PIN entry after a mismatch.
        goto old;
     }
 
 }
-// Define the function that performs this operation.
+// Display the ATM menu and process keypad selections until logout.
 void atm_menu()
 {
-			  // Repeat these steps while the condition is true.
+			  // Keep processing this ATM stage until an explicit exit occurs.
 			  while(1)
 			  {
-			  		// Check this condition before continuing.
+			  		// Check whether the date/time update flag has been set.
 			  		if(flag==1)
 	 				{
-	    				// Call this function to perform the requested operation.
+	    				// Run the date/time-setting routine when the interrupt flag is set.
 	    				Set_date_time();
-						// Update this value as part of the current operation.
+						// Clear the interrupt/event flag after handling it.
 						flag=0;
 	 				}
-			         // Move the LCD cursor to the required display position.
+			         // Position the LCD cursor at the beginning of line 1.
 			         CmdLCD(GOTO_LINE1_POS0);
-					 // Show this message on the LCD.
+					 // Display balance, withdrawal, and deposit menu options.
 					 StrLCD("1.BAL 2.WDL 3.DEP");
-					 // Move the LCD cursor to the required display position.
+					 // Position the LCD cursor at the beginning of line 2.
 					 CmdLCD(GOTO_LINE2_POS0);
-					 // Show this message on the LCD.
+					 // Display PIN change, history/transfer label, and exit options.
 					 StrLCD("4.PIN CHG 5.TRF 6.EX");
-					 // Wait for the requested number of seconds.
+					 // Wait one second.
 					 delay_s(1);
-			  		 // Read the key pressed on the keypad.
+			  		 // Read the selected menu key from the keypad.
 			  		 val=KeyScan();
-					 // Clear the LCD before showing new information.
+					 // Clear the LCD screen before the next display.
 					 CmdLCD(0x01);
-					 // Repeat these steps while the condition is true.
+					 // Wait until the keypad column scan condition changes.
 					 while(ColScan()==0);
-					 // Choose an action based on the selected value.
+					 // Dispatch the ATM operation selected by the keypad.
 					 switch(val)
 					 {
-					 	// Handle this keypad or menu selection.
+					 	// Option 1: display the account balance.
 					 	case 1:Balance(ACC_NO);
-						       // Exit the current loop or switch case.
+						       // Exit the current loop or switch branch.
 						       break;
-						// Handle this keypad or menu selection.
+						// Option 2: perform a withdrawal.
 						case 2:Withdraw(ACC_NO);
-							   // Exit the current loop or switch case.
+							   // Exit the current loop or switch branch.
 							   break;
-						// Handle this keypad or menu selection.
+						// Option 3: perform a deposit.
 						case 3:Deposit(ACC_NO);
-							   // Exit the current loop or switch case.
+							   // Exit the current loop or switch branch.
 							   break;
-						// Handle this keypad or menu selection.
+						// Option 4: change the account PIN.
 						case 4:change_pin();
-							   // Exit the current loop or switch case.
+							   // Exit the current loop or switch branch.
 							   break;
-						// Handle this keypad or menu selection.
+						// Option 5: display transaction history.
 						case 5:Display_History();
-							   // Exit the current loop or switch case.
+							   // Exit the current loop or switch branch.
 							   break;
-						// Handle this keypad or menu selection.
+						// Option 6: leave the menu switch and proceed to logout.
 						case 6:break;	
 					 }
-					 // Check this condition before continuing.
+					 // Check whether the user selected the logout option.
 					 if(val==6)
 					 {
-					   	// Read the current date and time from the real-time clock.
+					   	// Read the current RTC date and time for the event log.
 					   	RTC_Read(&sec,&min,&hour,&day,&month,&year);
-						// Send this text to the serial terminal through UART0.
+						// Print a separator line to the UART terminal.
 						U0_TxStr("\r\n=======================================================================\r\n");
-			  			// Format the transaction or date details as text.
+			  			// Format the timestamp, account number, and logout event for the UART log.
 			  			sprintf(log,"[%02u-%02u-%04u/%02u:%02u:%02u] ACC:%u :LOGOUT\r\n",day,month,year,hour,min,sec,ACC_NO);
-		   	  			// Send this text to the serial terminal through UART0.
+		   	  			// Transmit the formatted event log over UART0.
 		   	  			U0_TxStr(log);
-						// Clear the LCD before showing new information.
+						// Clear the LCD screen before the next display.
 						CmdLCD(0x01);
-						// Send this text to the serial terminal through UART0.
+						// Print a separator line to the UART terminal.
 						U0_TxStr("\r\n=======================================================================\r\n");
-						// Show this message on the LCD.
+						// Display the farewell message on the LCD.
 						StrLCD("THANK YOU!.....");
-						// Send this text to the serial terminal through UART0.
+						// Send the farewell message to the UART terminal.
 						U0_TxStr("THANK YOU!...........\r\n\r\n");
-						// Wait for the requested number of seconds.
+						// Wait one second.
 						delay_s(1);
-						// Clear the LCD before showing new information.
+						// Clear the LCD screen before the next display.
 						CmdLCD(0x01);
-					 	// Exit the current loop or switch case.
+					 	// Exit the current loop or switch branch.
 					 	break;
 					 }
-					// Check this condition before continuing.
+					// Check whether the date/time update flag has been set.
 					if(flag==1)
 	   				{
-	       				// Call this function to perform the requested operation.
+	       				// Run the date/time-setting routine when the interrupt flag is set.
 	       				Set_date_time();
-		   				// Update this value as part of the current operation.
+		   				// Clear the interrupt/event flag after handling it.
 		   				flag=0;
 	   				}
 			  }
 }
-// Define the function that performs this operation.
+// Continuously handle ATM login and menu sessions.
 void atm_run()
 {
-  // Repeat these steps while the condition is true.
+  // Keep processing this ATM stage until an explicit exit occurs.
   while(1)
   {
-     // Check this condition before continuing.
+     // Check whether the date/time update flag has been set.
      if(flag==1)
 	 {
-	    // Call this function to perform the requested operation.
+	    // Run the date/time-setting routine when the interrupt flag is set.
 	    Set_date_time();
-		// Update this value as part of the current operation.
+		// Clear the interrupt/event flag after handling it.
 		flag=0;
 	 }
-	// Check this condition before continuing.
+	// Open the ATM menu only after a successful login.
 	if(atm_login())
 	{
 		// Call this function to perform the requested operation.
