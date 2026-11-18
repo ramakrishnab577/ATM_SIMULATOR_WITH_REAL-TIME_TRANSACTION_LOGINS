@@ -29,7 +29,7 @@
 #include<stdio.h>
 // Include the header needed for this module.
 #include<lpc21xx.h>
-//extern volatile int flag;
+extern volatile int flag;
 
 // Declare shared data used by more than one function.
 extern s32 sec,min,hour;
