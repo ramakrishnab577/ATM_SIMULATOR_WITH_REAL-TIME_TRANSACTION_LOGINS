@@ -1,141 +1,212 @@
-// Include the header needed for this module.
-#include<lpc21xx.h>
-// Include the header needed for this module.
+// uart.c
+
+// Include LPC21xx microcontroller register definitions for UART0 configuration.
+#include <lpc21xx.h>
+
+// Include user-defined data types such as u8, u32, s32, and f32.
 #include "types.h"
-// Include the header needed for this module.
+
+// Include UART function declarations for serial communication.
 #include "uart.h"
-// Include the header needed for this module.
+
+// Include UART configuration macros for baud rate, word length, and register bits.
 #include "uart_defines.h"
-// Define the function that performs this operation.
+
+
+// Initialize UART0 for serial communication using the configured baud rate.
 void UART0_Init(void)
 {
-	// Select the hardware function assigned to the microcontroller pins.
-	PINSEL0 &=~((3<<2)|(3<<0));
-//	PINSEL0 |=(1<<TXD0_PIN_FUNC|1<<RXD0_PIN_FUNC);
-// Select the hardware function assigned to the microcontroller pins.
-PINSEL0|=0x05;
-	// Configure or write data to a UART0 hardware register.
-	U0LCR=((1<<DLAB_BIT)|(_8BIT<<WORD_LEN_SEL_BITS));
-	// Configure or write data to a UART0 hardware register.
-	U0DLL=DIVISOR;
-	// Configure or write data to a UART0 hardware register.
-	U0DLM=DIVISOR>>8;
-	// Configure or write data to a UART0 hardware register.
-	U0LCR &=~(1<<DLAB_BIT);
+    // Clear the function selection bits of P0.0 and P0.1.
+    PINSEL0 &=~((3<<2)|(3<<0));
+
+    // Alternative pin configuration using predefined UART pin macros.
+    //PINSEL0 |=(1<<TXD0_PIN_FUNC|1<<RXD0_PIN_FUNC);
+
+    // Configure P0.0 as TXD0 and P0.1 as RXD0 for UART0 communication.
+    PINSEL0|=0x05;
+
+    // Enable divisor latch access and configure UART0 for 8-bit data transmission.
+    U0LCR=((1<<DLAB_BIT)|(_8BIT<<WORD_LEN_SEL_BITS));
+
+    // Load the lower 8 bits of the baud rate divisor into U0DLL.
+    U0DLL=DIVISOR;
+
+    // Load the upper 8 bits of the baud rate divisor into U0DLM.
+    U0DLM=DIVISOR>>8;
+
+    // Disable divisor latch access to enable normal UART data register operation.
+    U0LCR &=~(1<<DLAB_BIT);
 }
-// Define the function that performs this operation.
+
+
+// Transmit a single 8-bit character through UART0.
 void UART0_Tx(u8 sDat)
 {
-	// Configure or write data to a UART0 hardware register.
-	U0THR=sDat;
-	// Repeat these steps while the condition is true.
-	while(((U0LSR>>TEMT_BIT)&1)==0);
+    // Write the character into the UART0 transmit holding register.
+    U0THR=sDat;
+
+    // Wait until the transmit holding register and shift register are empty.
+    while(((U0LSR>>TEMT_BIT)&1)==0);
 }
-/*void UART0_Rx(void)
+
+
+// Receive a single character through UART0 (currently commented out).
+/*
+void UART0_Rx(void)
 {
-	while(((U0LSR>>DR_BIT)&1)==0);
-	return U0RBR;
-}*/
-// Define the function that performs this operation.
+    // Wait until UART0 receives a character.
+    while(((U0LSR>>DR_BIT)&1)==0);
+
+    // Read the received character from the UART0 receive buffer register.
+    return U0RBR;
+}
+*/
+
+
+// Transmit a null-terminated string through UART0.
 void U0_TxStr(char *s)
 {
-
-	// Repeat these steps while the condition is true.
-	while(*s)
-	{
-		// Send one character through UART0.
-		UART0_Tx(*s++);
-	}
+    // Continue transmitting characters until the null terminator is reached.
+    while(*s)
+    {
+        // Transmit the current character and advance to the next character.
+        UART0_Tx(*s++);
+    }
 }
-// Define the function that performs this operation.
+
+
+// Convert an unsigned 32-bit integer into ASCII digits and transmit through UART0.
 void U0_TxU32(u32 n)
 {
-	// Declare variables used to store data for this operation.
-	s32 i=0;u8 a[10];
-	// Check this condition before continuing.
-	if(n==0)
-	{
-		// Send one character through UART0.
-		UART0_Tx('0');
-	}
-	// Handle the case when the previous condition is false.
-	else
-	{
-		// Repeat these steps while the condition is true.
-		while(n>0)
-		{
-			// Update this value as part of the current operation.
-			a[i++]=(n%10)+48;
-			// Update this value as part of the current operation.
-			n/=10;
-		}
-	}
-	// Repeat these steps using the loop counter.
-	for(--i;i>=0;i--)
-	{
-		// Send one character through UART0.
-		UART0_Tx(a[i]);
-	}
+    // Initialize a digit index and an array to store converted ASCII digits.
+    s32 i=0;
+    u8 a[10];
+
+    // Check whether the given unsigned integer is zero.
+    if(n==0)
+    {
+        // Transmit the ASCII character '0' through UART0.
+        UART0_Tx('0');
+    }
+
+    // Convert a nonzero unsigned integer into individual ASCII digits.
+    else
+    {
+        // Extract decimal digits until the entire number is converted.
+        while(n>0)
+        {
+            // Extract the last digit, convert it to ASCII, and store it in the array.
+            a[i++]=(n%10)+48;
+
+            // Remove the last decimal digit from the number.
+            n/=10;
+        }
+    }
+
+    // Transmit the stored ASCII digits in reverse order to display the correct number.
+    for(--i;i>=0;i--)
+    {
+        // Transmit the current ASCII digit through UART0.
+        UART0_Tx(a[i]);
+    }
 }
-// Define the function that performs this operation.
+
+
+// Transmit a signed 32-bit integer through UART0.
 void U0_Tx32(s32 n)
 {
-	// Check this condition before continuing.
-	if(n<0)
-	{
-		// Send one character through UART0.
-		UART0_Tx('-');
-		// Update this value as part of the current operation.
-		n=-n;
-	}
-	// Send one character through UART0.
-	UART0_Tx(n);
+    // Check whether the given integer is negative.
+    if(n<0)
+    {
+        // Transmit the negative sign before the integer value.
+        UART0_Tx('-');
+
+        // Convert the negative integer to its positive magnitude.
+        n=-n;
+    }
+
+    // Pass the integer value to UART0 as a single 8-bit character.
+    UART0_Tx(n);
 }
-// Define the function that performs this operation.
+
+
+// Transmit a floating-point value with the specified decimal places through UART0.
 void U0_F32(f32 fn,u8 nDP)
 {
-	// Declare variables used to store data for this operation.
-	u32 n,i;
-	// Check this condition before continuing.
-	if(fn<0.0)
-	{
-		// Send one character through UART0.
-		UART0_Tx('-');
-		// Update this value as part of the current operation.
-		fn=-fn;
-	}
-	// Update this value as part of the current operation.
-	n=fn;
-	// Send one character through UART0.
-	UART0_Tx(n);
-	// Send one character through UART0.
-	UART0_Tx('.');
-	// Repeat these steps using the loop counter.
-	for(i=0;i<nDP;i++)
-	{
-		// Update this value as part of the current operation.
-		fn=(fn-n)*10;
-		// Update this value as part of the current operation.
-		n=fn;
-		// Send one character through UART0.
-		UART0_Tx(n+48);
-	}
+    // Declare variables to store the integer part and decimal digit counter.
+    u32 n,i;
+
+    // Check whether the floating-point value is negative.
+    if(fn<0.0)
+    {
+        // Transmit the negative sign before the number.
+        UART0_Tx('-');
+
+        // Convert the negative floating-point value to a positive value.
+        fn=-fn;
+    }
+
+    // Extract the integer part of the floating-point number.
+    n=fn;
+
+    // Pass the integer part to UART0 as a single 8-bit character.
+    UART0_Tx(n);
+
+    // Transmit the decimal point through UART0.
+    UART0_Tx('.');
+
+    // Extract and transmit the requested number of decimal digits.
+    for(i=0;i<nDP;i++)
+    {
+        // Remove the integer part and multiply the fractional part by 10.
+        fn=(fn-n)*10;
+
+        // Extract the next decimal digit from the floating-point value.
+        n=fn;
+
+        // Convert the decimal digit to ASCII and transmit it through UART0.
+        UART0_Tx(n+48);
+    }
 }
-/*s8* U0_RxStr(void)
+
+
+// Receive a string through UART0 (currently commented out).
+/*
+s8* U0_RxStr(void)
 {
-	static s8 rBuff[100];
-	s8 t,i=0;
-	while(1)
-	{
-		t=UART0_Rx();
-		rBuff[i]=t;
-		if((t=='\n')||(t=='\r'))
-		{
-			rBuff[i]='\0';
-			break;
-		}
-		i++;
-	}
-	U0_TxStr("\n\r");
-	return rBuff;
-}*/
+    // Declare a static buffer to retain the received string after function return.
+    static s8 rBuff[100];
+
+    // Declare variables to store the received character and buffer index.
+    s8 t,i=0;
+
+    // Continuously receive characters until Enter is pressed.
+    while(1)
+    {
+        // Receive one character through UART0.
+        t=UART0_Rx();
+
+        // Store the received character in the buffer.
+        rBuff[i]=t;
+
+        // Check whether the received character is newline or carriage return.
+        if((t=='\n')||(t=='\r'))
+        {
+            // Replace the line-ending character with the null terminator.
+            rBuff[i]='\0';
+
+            // Stop receiving characters.
+            break;
+        }
+
+        // Move to the next buffer position.
+        i++;
+    }
+
+    // Transmit newline and carriage return characters.
+    U0_TxStr("\n\r");
+
+    // Return the address of the received string buffer.
+    return rBuff;
+}
+*/
