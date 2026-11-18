@@ -18,9 +18,6 @@ u32 KeyScan(void);
 // Declare a function to initialize the GPIO pins connected to the 4x4 keypad.
 void InitKPM(void);
 
-// Declare a function to read a numeric value entered through the keypad.
-u32 get_number(void);
-
 // Declare a function to read the ATM PIN while displaying '*' instead of digits.
 u32 Read_Password(void);
 
